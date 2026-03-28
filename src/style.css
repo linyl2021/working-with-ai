@@ -446,11 +446,8 @@ body.overview-active .mobile-nav-overview { color:var(--accent); }
   .habit-item { flex-direction:column; gap:.3rem; text-align:center; }
   .habit-before { text-align:center; }
 
-  /* Overview: 2-column grid, hide scaled content */
-  .overview { grid-template-columns:1fr 1fr; gap:.5rem; padding:1rem; padding-bottom:4rem; }
-  .overview-thumb { aspect-ratio:auto; height:auto; min-height:48px; display:flex; align-items:center; justify-content:center; }
-  .overview-inner { display:none; }
-  .overview-label { position:static; background:none; font-size:.85rem; color:var(--fg); padding:0; }
+  /* Overview: single column list with scaled previews */
+  .overview { grid-template-columns:1fr; gap:.6rem; padding:1rem; padding-bottom:4rem; }
 
   /* iframe overlay */
   .iframe-overlay-content { width:95vw; height:85vh; border-radius:8px; }
