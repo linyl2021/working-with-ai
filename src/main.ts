@@ -41,29 +41,50 @@ function showFragmentsUpTo(slideIdx: number, n: number) {
   fragmentState.set(slideIdx, n);
 }
 
-// When entering a slide, reset to initial state (0 fragments)
-function enterSlide(slideIdx: number) {
-  showFragmentsUpTo(slideIdx, 0);
-}
-
-function goto(index: number) {
+function goto(index: number, direction?: "forward" | "backward") {
   const clamped = Math.max(0, Math.min(index, slides.length - 1));
   if (clamped === current) return;
-  const direction = clamped > current ? "forward" : "backward";
+  const dir = direction ?? (clamped > current ? "forward" : "backward");
   const prevSlide = slides[current];
   const nextSlide = slides[clamped];
   prevSlide.classList.remove("active");
-  prevSlide.classList.add(direction === "forward" ? "exit-left" : "exit-right");
+  prevSlide.classList.add(dir === "forward" ? "exit-left" : "exit-right");
   nextSlide.classList.remove("exit-left", "exit-right");
   nextSlide.classList.add("active");
   const prevIdx = current;
   current = clamped;
-  enterSlide(clamped);
+  // Forward → initial state (0 fragments); backward → fully played (all fragments)
+  if (dir === "backward") {
+    showFragmentsUpTo(clamped, maxFragment(clamped));
+  } else {
+    showFragmentsUpTo(clamped, 0);
+  }
   updateProgress();
   setTimeout(
     () => slides[prevIdx].classList.remove("exit-left", "exit-right"),
     600,
   );
+}
+
+// Step fragment forward; if at end, go to next slide
+function stepForward() {
+  const cur = currentFragment(current);
+  const max = maxFragment(current);
+  if (cur < max) {
+    showFragmentsUpTo(current, cur + 1);
+  } else {
+    goto(current + 1, "forward");
+  }
+}
+
+// Step fragment backward; if at start, go to previous slide
+function stepBackward() {
+  const cur = currentFragment(current);
+  if (cur > 0) {
+    showFragmentsUpTo(current, cur - 1);
+  } else {
+    goto(current - 1, "backward");
+  }
 }
 
 
@@ -121,7 +142,11 @@ function buildOverview() {
 
     thumb.addEventListener("click", () => {
       toggleOverview(false);
-      goto(i);
+      if (i === current) {
+        showFragmentsUpTo(current, 0);
+      } else {
+        goto(i, "forward");
+      }
     });
     container.appendChild(thumb);
   });
@@ -207,53 +232,17 @@ document.addEventListener("keydown", (e) => {
   // Normal slide mode
   if (["ArrowRight", " ", "PageDown"].includes(e.key)) {
     e.preventDefault();
-    goto(current + 1);
+    goto(current + 1, "forward");
   } else if (["ArrowLeft", "PageUp"].includes(e.key)) {
     e.preventDefault();
-    goto(current - 1);
+    goto(current - 1, "backward");
   } else if (e.key === "ArrowDown") {
     e.preventDefault();
-    // Fragment forward only (don't cross slides)
-    const cur = currentFragment(current);
-    const max = maxFragment(current);
-    if (cur < max) showFragmentsUpTo(current, cur + 1);
+    stepForward();
   } else if (e.key === "ArrowUp") {
     e.preventDefault();
-    // Fragment backward only (don't cross slides)
-    const cur = currentFragment(current);
-    if (cur > 0) showFragmentsUpTo(current, cur - 1);
+    stepBackward();
   }
-});
-
-let touchStartX = 0;
-let touchStartY = 0;
-document.addEventListener("touchstart", (e) => {
-  touchStartX = e.touches[0].clientX;
-  touchStartY = e.touches[0].clientY;
-}, { passive: true });
-document.addEventListener("touchend", (e) => {
-  const dx = e.changedTouches[0].clientX - touchStartX;
-  const dy = e.changedTouches[0].clientY - touchStartY;
-  const absDx = Math.abs(dx);
-  const absDy = Math.abs(dy);
-  if (Math.max(absDx, absDy) < 50) return; // too short
-
-  if (absDx > absDy && absDx > 60) {
-    // Horizontal swipe → switch slides
-    if (dx < 0) goto(current + 1);
-    else goto(current - 1);
-  }
-  // Vertical swipe is left for native scroll on mobile
-  // Fragments are controlled via up/down keys or overview
-});
-
-document.addEventListener("click", (e) => {
-  if (overviewActive) return;
-  const t = e.target as HTMLElement;
-  if (t.closest("button, a, .interactive, input, iframe, .clickable")) return;
-  const x = e.clientX / window.innerWidth;
-  if (x > 0.8) goto(current + 1);
-  else if (x < 0.2) goto(current - 1);
 });
 
 // ============================================================
@@ -522,17 +511,10 @@ setupAiTasteToggle();
 setupOverlay();
 
 // Mobile nav bar
-document.getElementById("mnav-prev")?.addEventListener("click", () => goto(current - 1));
-document.getElementById("mnav-next")?.addEventListener("click", () => goto(current + 1));
-document.getElementById("mnav-up")?.addEventListener("click", () => {
-  const cur = currentFragment(current);
-  if (cur > 0) showFragmentsUpTo(current, cur - 1);
-});
-document.getElementById("mnav-down")?.addEventListener("click", () => {
-  const cur = currentFragment(current);
-  const max = maxFragment(current);
-  if (cur < max) showFragmentsUpTo(current, cur + 1);
-});
+document.getElementById("mnav-prev")?.addEventListener("click", () => goto(current - 1, "backward"));
+document.getElementById("mnav-next")?.addEventListener("click", () => goto(current + 1, "forward"));
+document.getElementById("mnav-up")?.addEventListener("click", () => stepBackward());
+document.getElementById("mnav-down")?.addEventListener("click", () => stepForward());
 document.getElementById("mnav-overview")?.addEventListener("click", () => toggleOverview());
 
 // Remove FOUC guard: double-rAF ensures initial state is fully painted
