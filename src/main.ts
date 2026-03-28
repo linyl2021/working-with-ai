@@ -96,10 +96,15 @@ function buildOverview() {
     thumb.className = "overview-thumb" + (i === current ? " current" : "");
     thumb.dataset.index = String(i);
 
-    // Clone slide content into a scaled wrapper
+    // Clone slide content into a scaled wrapper, with all fragments visible
     const inner = document.createElement("div");
     inner.className = "overview-inner";
-    inner.innerHTML = slide.innerHTML;
+    const clone = slide.cloneNode(true) as HTMLElement;
+    // Show all fragments in the clone
+    clone.querySelectorAll("[data-f]").forEach((el) => {
+      el.classList.add("f-visible");
+    });
+    inner.innerHTML = clone.innerHTML;
     thumb.appendChild(inner);
 
     // Label — extract slide title text for mobile
